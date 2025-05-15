@@ -1,0 +1,47 @@
+BEGIN
+INSERT INTO EXCEPTION (SYS_IDENTIFIER,
+                       REPORT_DATE,
+                       EXC_CATEGORY,
+                       EXC_TYPE,
+                       EXC_CODE,
+                       ACT_CODE,
+                       SOL_CODE,
+                       LOCAL_CUST_ID,
+                       FAC_ID,
+                       COV_ID,
+                       OUT_ID,
+                       LOC_VALUE,
+                       CRM_VALUE,
+                       ADD_INFO,
+                       ROW_IDENTIFIER)
+SELECT DISTINCT v_sys_identifier,
+                v_report_date,
+                v_exc_category,
+                v_exc_type,
+                v_exc_code,
+                v_act_code,
+                v_sol_code,
+                rf.local_cust_id,   --customer_id
+                rf.fac_id,          --facility_id
+                NULL,               --cover_id
+                NULL,               --outstanding_id
+                rf.ead_ifr9_ccy,    --local
+                v_def_currency,     --crm
+                'ead_ifr9_ccy defaulted to ' || v_def_currency, --additional
+                rf.raw_fac_id       --rowid
+FROM pp_fac_ead rf
+WHERE rf.ead_ifr9_ccy IS NULL
+  AND rf.ead_ifr9 IS NOT NULL;
+
+v_debug_msg := plsql_linewerwer || ' Of PLSQL UNIT ' || plsql_unit2234 || ' rows affected: ' || SQL%rowcount;
+utilities.show_debug(v_debug_msg);
+COMMIT;
+
+-- Defaulting the ead_ifr9_ccy
+UPDATE pp_fac_ead
+SET ead_ifr9_ccy = v_def_currency
+WHERE ead_ifr9_ccy IS NULL
+  AND ead_ifr9 IS NOT NULL;
+
+COMMIT;
+END;

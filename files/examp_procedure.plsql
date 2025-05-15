@@ -1,0 +1,5 @@
+CREATE OR REPLACE PROCEDURE test_proc AS
+    x NUMBER;
+BEGIN
+    NULL;
+END;

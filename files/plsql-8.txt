@@ -1,0 +1,64 @@
+v_exc_code := 'FORMS1SDPOP';
+v_exc_category := 'LIM';
+v_sol_code := 'NIL';
+
+get_exception_info(
+    v_sys_identifier        => v_sys_identifier,
+    v_exc_code              => v_exc_code,
+    v_exc_category          => v_exc_category,
+    iv_sol_code             => v_sol_code,
+    v_exc_type              => v_exc_type,
+    v_act_code              => v_act_code,
+    v_is_active             => v_is_active
+);
+
+IF (v_is_active = 'Y') THEN
+    INSERT INTO exceptions
+        (sys_identifier,
+         report_date,
+         exc_category,
+         exc_type,
+         exc_code,
+         act_code,
+         sol_code,
+         cust_id,
+         high_level_fac_id,
+         cov_id,
+         fac_id,
+         loc_value,
+         crm_value,
+         add_info,
+         row_identifier)
+    SELECT v_sys_identifier,
+           v_report_date,
+           v_exc_category,
+           v_exc_type,
+           v_exc_code,
+           v_act_code,
+           v_sol_code,
+           rl.cust_id,               --customer_id
+           rl.high_level_fac_id,     --higher_level_facility_id
+           NULL,                     --cover_id
+           rl.fac_id,                --facility_id
+           rl.forb_meas_start_date,  --local value
+           NULL,                     --crm value
+           'forbearance measure start date set to null when forbearance measure is not available', --additional information
+           NULL                      --record_id
+    FROM raw_limit rl
+    WHERE rl.forb_meas_start_date IS NOT NULL
+      AND rl.forbearance_meas IS NULL
+      AND rl.dummy_ind IS NULL;
+    COMMIT;
+
+    -- Default forbearance_start_date to NULL
+    BEGIN
+        UPDATE raw_limit rl
+        SET rl.forb_meas_start_date = NULL
+        WHERE rl.forb_meas_start_date IS NOT NULL
+          AND rl.forbearance_meas IS NULL;
+
+    EXCEPTION WHEN OTHERS THEN
+        dbms_output.put_line('ERROR: Failed to default forb_meas_start_date for LIM_FORMS1SDPOP_DEFAULTED');
+        utils.handleerror(sqlcode, sqlerrm);
+    END;
+END IF;

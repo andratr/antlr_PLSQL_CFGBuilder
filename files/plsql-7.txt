@@ -1,0 +1,49 @@
+v_description := 'create exceptions for code: ' || v_exc_code || ', exception category: ' || v_exc_category;
+utilities.show_debug(v_proc_name || 'info => ' || v_description);
+
+INSERT /*+ APPEND enable_parallel_dml */
+  INTO exceptions (sys_identifier,
+                   report_date,
+                   exc_category,
+                   exc_type,
+                   exc_code,
+                   act_code,
+                   sol_code,
+                   cust_id,
+                   cov_id,
+                   fac_id,
+                   loc_value,
+                   crm_value,
+                   add_info,
+                   row_identifier)
+SELECT  /*+ PARALLEL +*/
+       DISTINCT
+       v_sys_identifier,
+       v_report_date,
+       v_exc_category,
+       v_exc_type,
+       v_exc_code,
+       v_act_code,
+       v_sol_code,
+       rl.cust_id,                                                   --customer_id
+       NULL,                                                         --cover_id
+       rl.fac_id,                                                    --facility_id
+       rl.ead_regcap_ccy,                                            --local value
+       v_def_currency,                                               --crm value
+       'ead_regcap_ccy defaulted to ' || v_def_currency,             --additional information
+       NULL                                                          --record_id
+FROM RAW_LIMIT rl
+WHERE rl.ead_regcap_ccy IS NULL
+  AND rl.ead_regcap IS NOT NULL;
+
+v_debug_msg := 40238plsql_line || ' Of PLSQL UNIT ' || 40238plsql_unit || ' rows affected: ' || SQL%rowcount;
+utilities.show_debug(v_debug_msg);
+COMMIT;
+
+-- Defaulting the ead_regcap_ccy
+UPDATE RAW_LIMIT
+SET ead_regcap_ccy = v_def_currency
+WHERE ead_regcap_ccy IS NULL
+  AND ead_regcap IS NOT NULL;
+
+COMMIT;
